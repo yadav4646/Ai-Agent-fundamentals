@@ -4,7 +4,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 
 import { SYSTEM_PROMPT } from "./system/prompt";
 import type { AgentCallbacks } from "../types.ts";
-
+//
 const MODEL_NAME = process.env.MODEL_NAME || "gemini/gemini-3.5-flash-lite";
 
 const router = createOpenAI({
