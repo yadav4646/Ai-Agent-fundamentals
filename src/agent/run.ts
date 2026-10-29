@@ -1,7 +1,8 @@
 import "dotenv/config";
 import { streamText, type ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
-
+import { tools } from "./tools/index.ts";
+import { executeTool } from "./executeTools.ts";
 import { SYSTEM_PROMPT } from "./system/prompt";
 import type { AgentCallbacks } from "../types.ts";
 //
@@ -21,6 +22,7 @@ export const runAgent = async (
         model: router.chat(MODEL_NAME),
         prompt: userMessage,
         system: SYSTEM_PROMPT,
+        tools,
     });
 
     let fullResponse = "";
@@ -30,12 +32,21 @@ export const runAgent = async (
         fullResponse += textPart;
     }
 
+    const toolCalls = await result.toolCalls;
+    console.log("\nTool calls:", toolCalls);
+
+    for (const toolCall of toolCalls) {
+        console.log(await executeTool(toolCall.toolName, toolCall.input));
+    }
+
     console.log();
 
     return fullResponse;
 };
 
-runAgent("Hello can you hear me?", [], {} as AgentCallbacks).catch((error) => {
-    console.error("Agent error:", error);
-    process.exitCode = 1;
-});
+runAgent("What is the current time right now?", [], {} as AgentCallbacks).catch(
+    (error) => {
+        console.error("Agent error:", error);
+        process.exitCode = 1;
+    },
+);
