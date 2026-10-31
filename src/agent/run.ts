@@ -3,29 +3,34 @@ import { streamText, type ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { tools } from "./tools/index.ts";
 import { executeTool } from "./executeTools.ts";
-import { SYSTEM_PROMPT } from "./system/prompt";
+import { SYSTEM_PROMPT } from "./system/prompt.ts";
 import type { AgentCallbacks } from "../types.ts";
 import { getTracer, Laminar } from "@lmnr-ai/lmnr";
-//
+
 const MODEL_NAME = process.env.MODEL_NAME || "gemini/gemini-3.5-flash-lite";
 
 const router = createOpenAI({
     baseURL: process.env.OPENAI_BASE_URL || "http://localhost:20128/v1",
     apiKey: process.env.OPENAI_API_KEY,
 });
-//
-//
+
 Laminar.initialize({
     projectApiKey: process.env.LMNR_PROJECT_API_KEY,
 });
+
 export const runAgent = async (
     userMessage: string,
     conversationHistory: ModelMessage[],
     callbacks: AgentCallbacks,
-) => {
+): Promise<ModelMessage[]> => {
+    const messages: ModelMessage[] = [
+        ...conversationHistory,
+        { role: "user", content: userMessage },
+    ];
+
     const result = streamText({
         model: router.chat(MODEL_NAME),
-        prompt: userMessage,
+        messages,
         system: SYSTEM_PROMPT,
         tools,
         experimental_telemetry: {
@@ -37,27 +42,19 @@ export const runAgent = async (
     let fullResponse = "";
 
     for await (const textPart of result.textStream) {
-        process.stdout.write(textPart);
         fullResponse += textPart;
+        callbacks.onToken?.(textPart);
     }
 
     const toolCalls = await result.toolCalls;
-    console.log("\nTool calls:", toolCalls);
 
     for (const toolCall of toolCalls) {
-        console.log(await executeTool(toolCall.toolName, toolCall.input));
+        const toolResult = await executeTool(toolCall.toolName, toolCall.input);
+
+        console.log("Tool result:", toolResult);
     }
 
-    console.log();
+    callbacks.onComplete?.(fullResponse);
 
-    return fullResponse;
+    return [...messages, { role: "assistant", content: fullResponse }];
 };
-
-runAgent("What is the current time right now?", [], {} as AgentCallbacks)
-    .catch((error) => {
-        console.error("Agent error:", error);
-        process.exitCode = 1;
-    })
-    .finally(async () => {
-        await Laminar.shutdown();
-    });

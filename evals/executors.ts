@@ -1,6 +1,6 @@
 import type {
-  EvalData,
-  SingleTurnResult,
-  MultiTurnEvalData,
-  MultiTurnResult,
+    EvalData,
+    SingleTurnResult,
+    MultiTurnEvalData,
+    MultiTurnResult,
 } from "./types.ts";
